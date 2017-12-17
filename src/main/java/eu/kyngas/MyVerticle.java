@@ -79,6 +79,7 @@ public class MyVerticle extends AbstractVerticle {
         getMovie(Retryable.create(5));
         return;
       }
+      counter = max + 1;
       getMaxIdFromJson(filename);
     });
   }
