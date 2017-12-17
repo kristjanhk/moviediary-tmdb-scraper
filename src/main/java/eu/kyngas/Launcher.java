@@ -15,6 +15,6 @@ public class Launcher {
         .deployVerticle(new MyVerticle(), new DeploymentOptions()
             .setConfig(new JsonObject()
                 .put("divider", args.length == 2 ? Integer.parseInt(args[0]) : 1)
-                .put("divider2", args.length == 2 ? Integer.parseInt(args[1]) : 1)));
+                .put("divider2", args.length == 2 ? Integer.parseInt(args[1]) : 0)));
   }
 }

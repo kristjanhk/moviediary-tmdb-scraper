@@ -12,6 +12,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
+import java.util.OptionalInt;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
@@ -50,8 +51,61 @@ public class MyVerticle extends AbstractVerticle {
         return;
       }
       moviesToFetch = ar.result();
-      getMovie(Retryable.create(5));
+      continueFromLastJson();
     });
+  }
+
+  private void continueFromLastJson() {
+    vertx.fileSystem().readDir(System.getProperty("user.dir"), ar -> {
+      if (ar.failed()) {
+        log.error("Failed to read directory: ", ar.cause());
+        return;
+      }
+      int max = 0;
+      String filename = "";
+      for (String s : ar.result()) {
+        if (!s.contains("movies") && !s.contains(".json")) {
+          continue;
+        }
+        String[] path = s.split("\\\\");
+        int i = Integer.parseInt(path[path.length - 1].split("-")[3].split("\\.")[0]);
+        if (i >= max) {
+          max = i;
+          filename = s;
+        }
+      }
+      if (filename.isEmpty()) {
+        log.error("Failed to find max .json file nr, starting from beginning.");
+        getMovie(Retryable.create(5));
+        return;
+      }
+      getMaxIdFromJson(filename);
+    });
+  }
+
+  private void getMaxIdFromJson(String filename) {
+    vertx.fileSystem().readFile(filename, ar -> {
+      if (ar.failed()) {
+        log.error("Failed to read max json file", ar.cause());
+        return;
+      }
+      OptionalInt max = ar.result().toJsonObject().getJsonArray("movies").stream()
+          .map(obj -> (JsonObject) obj)
+          .mapToInt(json -> json.getInteger("id", -1))
+          .max();
+      if (!max.isPresent()) {
+        log.error("Failed to find max id, starting from beginning.");
+        getMovie(Retryable.create(5));
+        return;
+      }
+      continueProgress(max.getAsInt());
+    });
+  }
+
+  private void continueProgress(int fromId) {
+    moviesToFetch.removeIf(id -> id <= fromId);
+    log.info("Continuing after id: " + fromId);
+    getMovie(Retryable.create(5));
   }
 
   private void getMovie(Retryable retryable) {
@@ -92,13 +146,13 @@ public class MyVerticle extends AbstractVerticle {
   }
 
   private void handleOk(HttpClientResponse res, Retryable retryable) {
+    Integer id = moviesToFetch.poll();
     res.bodyHandler(body -> {
       JsonObject movie = body.toJsonObject();
       movies.add(resToSave(movie));
-      log.info("Added movie with id: " + movie.getInteger("id", -1));
+      log.info("Added movie with id: " + id + ", response id: " + movie.getInteger("id", -1));
+      getMovie(retryable.reset());
     });
-    moviesToFetch.poll();
-    getMovie(retryable.reset());
   }
 
   private JsonObject resToSave(JsonObject movie) {
