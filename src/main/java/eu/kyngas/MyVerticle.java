@@ -190,7 +190,11 @@ public class MyVerticle extends AbstractVerticle {
   }
 
   private long getTimeTillReset(HttpClientResponse res) {
-    return Long.parseLong(res.getHeader("X-RateLimit-Reset")) - System.currentTimeMillis() + 500L;
+    String rateLimitHeader = res.getHeader("X-RateLimit-Reset");
+    if (rateLimitHeader == null) {
+      return 500L;
+    }
+    return Long.parseLong(rateLimitHeader) - System.currentTimeMillis() + 500L;
   }
 
   @Override
