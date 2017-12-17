@@ -7,9 +7,12 @@ import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -25,23 +28,28 @@ public class MyVerticle extends AbstractVerticle {
   private Integer divider2;
 
   @Override
-  public void start() throws Exception {
+  public void start() {
     client = vertx.createHttpClient(new HttpClientOptions().setSsl(true).setKeepAlive(false).setTrustAll(true));
     divider = config().getInteger("divider");
     divider2 = config().getInteger("divider2");
 
-    vertx.fileSystem().readFile("movie_ids_12_17_2017.json", ar -> {
-      if (ar.failed()) {
-        log.error("Failed to read file: ", ar.cause());
-      }
-      String result = ar.result().toString();
-      moviesToFetch = Stream.of(result.split("\n"))
+    vertx.<ArrayDeque<Integer>>executeBlocking(fut -> {
+      InputStream in = MyVerticle.class.getResourceAsStream("/movie_ids_12_17_2017.json");
+      ArrayDeque<Integer> result = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))
+          .lines()
           .map(JsonObject::new)
           .filter(json -> json.containsKey("id"))
           .map(json -> json.getInteger("id"))
           .filter(id -> id % divider == divider2)
           .sorted()
-          .collect(Collectors.toCollection(ArrayDeque::new)); //võtab tükk aega
+          .collect(Collectors.toCollection(ArrayDeque::new));
+      fut.complete(result);
+    }, ar -> {
+      if (ar.failed()) {
+        log.error("Failed to read file: ", ar.cause());
+        return;
+      }
+      moviesToFetch = ar.result();
       getMovie(Retryable.create(5));
     });
   }
@@ -77,6 +85,9 @@ public class MyVerticle extends AbstractVerticle {
       } else {
         handleElse(res, retryable);
       }
+    }).exceptionHandler(thr -> {
+      log.error("TMDB api failure, movie id: " + moviesToFetch.poll(), thr);
+      getMovie(retryable.reset());
     }).end();
   }
 
@@ -105,7 +116,8 @@ public class MyVerticle extends AbstractVerticle {
       log.warn("Rate limit reached, waiting for " + timeTillReset + " ms.");
       vertx.setTimer(timeTillReset, timer -> getMovie(retryable));
     }, () -> {
-      log.error("Rate limit reached, too many failures, trying next movie: " + moviesToFetch.poll() + " -> " + moviesToFetch.peek());
+      log.error("Rate limit reached, too many failures, trying next movie: " +
+          moviesToFetch.poll() + " -> " + moviesToFetch.peek());
       getMovie(retryable.reset());
     });
   }
@@ -127,7 +139,7 @@ public class MyVerticle extends AbstractVerticle {
   }
 
   @Override
-  public void stop() throws Exception {
+  public void stop() {
     client.close();
   }
 }
