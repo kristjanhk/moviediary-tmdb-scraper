@@ -21,12 +21,14 @@ public class MyVerticle extends AbstractVerticle {
   private JsonArray movies = new JsonArray();
   private ArrayDeque<Integer> moviesToFetch;
   private int counter = 0;
+  private Integer divider;
+  private Integer divider2;
 
   @Override
   public void start() throws Exception {
     client = vertx.createHttpClient(new HttpClientOptions().setSsl(true).setKeepAlive(false).setTrustAll(true));
-    Integer divider = config().getInteger("divider");
-    Integer divider2 = config().getInteger("divider2");
+    divider = config().getInteger("divider");
+    divider2 = config().getInteger("divider2");
 
     vertx.fileSystem().readFile("movie_ids_12_17_2017.json", ar -> {
       if (ar.failed()) {
@@ -49,7 +51,7 @@ public class MyVerticle extends AbstractVerticle {
       JsonArray currentMovies = movies.copy();
       movies.clear();
       int c = counter++;
-      String filename = "movies" + c + ".json";
+      String filename = "movies-" + divider + "-" + divider2 + "-" + c + ".json";
       vertx.fileSystem().writeFile(filename, Buffer.buffer(new JsonObject().put("movies", currentMovies).encodePrettily()), ar -> {
         if (ar.failed()) {
           log.error("Failed to write to file " + filename + ": ", ar.cause());
