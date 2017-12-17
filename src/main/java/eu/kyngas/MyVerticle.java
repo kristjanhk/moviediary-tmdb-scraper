@@ -26,6 +26,7 @@ public class MyVerticle extends AbstractVerticle {
   public void start() throws Exception {
     client = vertx.createHttpClient(new HttpClientOptions().setSsl(true).setKeepAlive(false).setTrustAll(true));
     Integer divider = config().getInteger("divider");
+    Integer divider2 = config().getInteger("divider2");
 
     vertx.fileSystem().readFile("movie_ids_12_17_2017.json", ar -> {
       if (ar.failed()) {
@@ -36,7 +37,7 @@ public class MyVerticle extends AbstractVerticle {
           .map(JsonObject::new)
           .filter(json -> json.containsKey("id"))
           .map(json -> json.getInteger("id"))
-          .filter(id -> id % divider == 0)
+          .filter(id -> id % divider == divider2)
           .sorted()
           .collect(Collectors.toCollection(ArrayDeque::new)); //võtab tükk aega
       getMovie(Retryable.create(5));

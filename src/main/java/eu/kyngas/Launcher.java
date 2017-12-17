@@ -13,6 +13,8 @@ public class Launcher {
     System.setProperty("vertx.logger-delegate-factory-class-name", "io.vertx.core.logging.SLF4JLogDelegateFactory");
     Vertx.vertx()
         .deployVerticle(new MyVerticle(), new DeploymentOptions()
-            .setConfig(new JsonObject().put("divider", args.length == 1 ? Integer.parseInt(args[0]) : 1)));
+            .setConfig(new JsonObject()
+                .put("divider", args.length == 2 ? Integer.parseInt(args[0]) : 1)
+                .put("divider2", args.length == 2 ? Integer.parseInt(args[1]) : 1)));
   }
 }
