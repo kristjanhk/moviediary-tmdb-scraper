@@ -1,0 +1,31 @@
+plugins {
+    id 'java'
+    id 'idea'
+    id 'application'
+    id "com.github.johnrengelman.shadow" version "1.2.4"
+    id 'io.franzbecker.gradle-lombok' version '1.10'
+}
+
+group 'eu.kyngas'
+version '0.01'
+
+apply plugin: 'java'
+
+sourceCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compile group: 'io.vertx', name: 'vertx-core', version: '3.5.0'
+    compile group: 'ch.qos.logback', name: 'logback-classic', version: '1.2.3'
+    compile group: 'io.vertx', name: 'vertx-web', version: '3.5.0'
+}
+
+mainClassName = 'eu.kyngas.Launcher'
+
+shadowJar {
+    baseName = 'moviediary'
+    classifier = 'v1'
+}
